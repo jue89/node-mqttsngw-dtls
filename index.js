@@ -1,4 +1,5 @@
 const DTLS = require('openssl-dtls');
+const mqttsn = require('mqttsn-packet');
 
 module.exports = (opts) => (bus) => new Promise((resolve) => {
 	// Create new DTLS server context
@@ -31,7 +32,21 @@ module.exports = (opts) => (bus) => new Promise((resolve) => {
 		const peer = socket.address();
 		const clientKey = `${peer.address}_${peer.port}`;
 
-		// Debug log connection stuff
+		// Parse incoming packets
+		const parser = mqttsn.parser();
+		socket.on('message', (msg) => parser.parse(msg));
+		parser.on('packet', (packet) => {
+			packet.clientKey = clientKey;
+			const consumed = bus.emit(['snUnicastIngress', clientKey, packet.cmd], packet);
+			if (!consumed && opts.log && opts.log.error) {
+				opts.log.error('Unconsumed MQTTSN packet', Object.assign({
+					message_id: '9cf60d7aa0eb4b3f976f25671eea1ff5',
+					clientKey: clientKey
+				}, packet));
+			}
+		});
+
+		// Install logging handlers
 		if (opts.log && opts.log.debug) {
 			opts.log.debug(`Handshake successfully finished with [${peer.address}]:${peer.port}`, {
 				message_id: '1d223f68a881407d86b94babf40da157',
@@ -44,6 +59,20 @@ module.exports = (opts) => (bus) => new Promise((resolve) => {
 					clientKey: clientKey
 				}
 			));
+		}
+		if (opts.log && opts.log.warn) {
+			parser.on('error', (err) => opts.log.warn(
+				`Parser error: ${err.message}`,
+				{
+					message_id: 'fed465ee771a4701ad119f1fda70972a',
+					stack: err.stack,
+					clientKey: clientKey
+				}
+			));
+		} else {
+			// Dummy listener: We don't want to crash everything
+			// due to unhandler parsing errors.
+			parser.on('error', () => {});
 		}
 	});
 

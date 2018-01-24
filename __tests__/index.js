@@ -1,6 +1,9 @@
 jest.mock('openssl-dtls');
 const DTLS = require('openssl-dtls');
 
+jest.mock('mqttsn-packet');
+const mqttsn = require('mqttsn-packet');
+
 const dtls = require('../index.js');
 
 test('reject if creating DTLS socket failed', () => {
@@ -79,5 +82,77 @@ test('debug log closed connections', () => {
 	expect(debug.mock.calls[1][1]).toMatchObject({
 		message_id: '0664446f18574088b369460de3aa197b',
 		clientKey: '::1_12345'
+	});
+});
+
+test('parse incoming messages', () => {
+	const BUFFER = Buffer.alloc(0);
+	const SOCKET = DTLS._socket({
+		address: '::1',
+		port: 12345
+	});
+	dtls({})({});
+	DTLS._createServer.emit('secureConnection', SOCKET);
+	SOCKET.emit('message', BUFFER);
+	expect(mqttsn._parser.parse.mock.calls[0][0]).toBe(BUFFER);
+});
+
+test('warn log parser errors', () => {
+	const ERROR = new Error('testErr');
+	const SOCKET = DTLS._socket({
+		address: '::1',
+		port: 12345
+	});
+	const warn = jest.fn();
+	dtls({ log: { warn } })({});
+	DTLS._createServer.emit('secureConnection', SOCKET);
+	mqttsn._parser.emit('error', ERROR);
+	expect(warn.mock.calls[0][0]).toEqual('Parser error: testErr');
+	expect(warn.mock.calls[0][1]).toMatchObject({
+		message_id: 'fed465ee771a4701ad119f1fda70972a',
+		clientKey: '::1_12345'
+	});
+});
+
+test('emit parsed packets to bus', () => {
+	const PACKET = {
+		cmd: 'testCmd'
+	};
+	const SOCKET = DTLS._socket({
+		address: '::1',
+		port: 12345
+	});
+	const emit = jest.fn(() => true);
+	dtls({})({ emit });
+	DTLS._createServer.emit('secureConnection', SOCKET);
+	mqttsn._parser.emit('packet', PACKET);
+	expect(emit.mock.calls[0][0]).toMatchObject([
+		'snUnicastIngress',
+		'::1_12345',
+		'testCmd'
+	]);
+	expect(emit.mock.calls[0][1]).toMatchObject(Object.assign({
+		clientKey: '::1_12345'
+	}, PACKET));
+});
+
+test('error log if emitted bus events are not consumed', () => {
+	const PACKET = {
+		cmd: 'testCmd'
+	};
+	const SOCKET = DTLS._socket({
+		address: '::1',
+		port: 12345
+	});
+	const error = jest.fn();
+	const emit = jest.fn(() => false);
+	dtls({ log: { error } })({ emit });
+	DTLS._createServer.emit('secureConnection', SOCKET);
+	mqttsn._parser.emit('packet', PACKET);
+	expect(error.mock.calls[0][0]).toEqual('Unconsumed MQTTSN packet');
+	expect(error.mock.calls[0][1]).toMatchObject({
+		message_id: '9cf60d7aa0eb4b3f976f25671eea1ff5',
+		clientKey: '::1_12345',
+		cmd: 'testCmd'
 	});
 });
