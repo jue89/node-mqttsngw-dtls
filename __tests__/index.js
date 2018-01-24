@@ -12,21 +12,22 @@ const bus = {
 	removeListener: jest.fn()
 };
 
-test('reject if creating DTLS socket failed', () => {
+test('reject if creating DTLS socket failed', (done) => {
 	const ERR = new Error();
 	DTLS.createServer.mockImplementationOnce(() => { throw ERR; });
-	return dtls({})(bus)
-		.then(() => Promise.reject(new Error('FAILED')))
-		.catch((e) => {
-			expect(e).toBe(ERR);
-		});
+	try {
+		dtls({})(bus);
+		done(new Error('FAILED'));
+	} catch (e) {
+		expect(e).toBe(ERR);
+		done();
+	}
 });
 
 test('call bind method on start call', () => {
 	const bind = {};
-	return dtls({ bind })({}).then((start) => start()).then(() => {
-		expect(DTLS._createServer.bind.mock.calls[0][0]).toBe(bind);
-	});
+	dtls({ bind })({})();
+	expect(DTLS._createServer.bind.mock.calls[0][0]).toBe(bind);
 });
 
 test('info log incoming handshakes', () => {

@@ -1,7 +1,7 @@
 const DTLS = require('openssl-dtls');
 const mqttsn = require('mqttsn-packet');
 
-module.exports = (opts) => (bus) => new Promise((resolve) => {
+module.exports = (opts) => (bus) => {
 	// Create new DTLS server context
 	const srv = DTLS.createServer(opts);
 
@@ -74,7 +74,7 @@ module.exports = (opts) => (bus) => new Promise((resolve) => {
 		// Install logging handlers
 		if (!opts.log) return;
 		if (opts.log.debug) {
-			socket.on('message', (message) => opts.log.debug(
+			socket.prependListener('message', (message) => opts.log.debug(
 				`Ingress packet: ${message.toString('hex')}`,
 				{
 					message_id: 'fd5b9fe5a8d24877ba8a4f751c8b4f5f',
@@ -119,5 +119,5 @@ module.exports = (opts) => (bus) => new Promise((resolve) => {
 		srv.bind(opts.bind);
 		return stop;
 	};
-	resolve(start);
-});
+	return start;
+};
