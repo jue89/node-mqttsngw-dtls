@@ -29,16 +29,16 @@ test('call bind method on start call', () => {
 	});
 });
 
-test('debug log incoming handshakes', () => {
+test('info log incoming handshakes', () => {
 	const PEER = {
 		address: '::1',
 		port: 12345
 	};
-	const debug = jest.fn();
-	dtls({ log: { debug } })(bus);
+	const info = jest.fn();
+	dtls({ log: { info } })(bus);
 	DTLS._createServer.emit('connection', PEER);
-	expect(debug.mock.calls[0][0]).toEqual('Handshake started by [::1]:12345');
-	expect(debug.mock.calls[0][1]).toMatchObject({
+	expect(info.mock.calls[0][0]).toEqual('Handshake started by [::1]:12345');
+	expect(info.mock.calls[0][1]).toMatchObject({
 		message_id: 'c266859e94db40edbf126f74634dd5fc',
 		clientKey: `${PEER.address}_${PEER.port}`
 	});
@@ -60,32 +60,32 @@ test('warn log errors caused by peers', () => {
 	});
 });
 
-test('debug log established connections', () => {
+test('info log established connections', () => {
 	const SOCKET = DTLS._socket({
 		address: '::1',
 		port: 12345
 	});
-	const debug = jest.fn();
-	dtls({ log: { debug } })(bus);
+	const info = jest.fn();
+	dtls({ log: { info } })(bus);
 	DTLS._createServer.emit('secureConnection', SOCKET);
-	expect(debug.mock.calls[0][0]).toEqual('Handshake successfully finished with [::1]:12345');
-	expect(debug.mock.calls[0][1]).toMatchObject({
+	expect(info.mock.calls[0][0]).toEqual('Handshake successfully finished with [::1]:12345');
+	expect(info.mock.calls[0][1]).toMatchObject({
 		message_id: '1d223f68a881407d86b94babf40da157',
 		clientKey: '::1_12345'
 	});
 });
 
-test('debug log closed connections', () => {
+test('info log closed connections', () => {
 	const SOCKET = DTLS._socket({
 		address: '::1',
 		port: 12345
 	});
-	const debug = jest.fn();
-	dtls({ log: { debug } })(bus);
+	const info = jest.fn();
+	dtls({ log: { info } })(bus);
 	DTLS._createServer.emit('secureConnection', SOCKET);
 	SOCKET.emit('close');
-	expect(debug.mock.calls[1][0]).toEqual('Connection to [::1]:12345 closed');
-	expect(debug.mock.calls[1][1]).toMatchObject({
+	expect(info.mock.calls[1][0]).toEqual('Connection to [::1]:12345 closed');
+	expect(info.mock.calls[1][1]).toMatchObject({
 		message_id: '0664446f18574088b369460de3aa197b',
 		clientKey: '::1_12345'
 	});
@@ -226,4 +226,39 @@ test('remove listener for outgress packets on the bus on disconnect', () => {
 		'::1_12345',
 		'*'
 	]);
+});
+
+test('debug log raw ingress packets', () => {
+	const PACKET = Buffer.from([0x1, 0x2, 0x3]);
+	const SOCKET = DTLS._socket({
+		address: '::1',
+		port: 12345
+	});
+	const debug = jest.fn();
+	dtls({ log: { debug } })(bus);
+	DTLS._createServer.emit('secureConnection', SOCKET);
+	SOCKET.emit('message', PACKET);
+	expect(debug.mock.calls[0][0]).toEqual('Ingress packet: 010203');
+	expect(debug.mock.calls[0][1]).toMatchObject({
+		message_id: 'fd5b9fe5a8d24877ba8a4f751c8b4f5f',
+		clientKey: '::1_12345'
+	});
+});
+
+test('debug log raw outgress packets', () => {
+	const BUFFER = Buffer.from([0x4, 0x5, 0x6]);
+	const SOCKET = DTLS._socket({
+		address: '::1',
+		port: 12345
+	});
+	const debug = jest.fn();
+	dtls({ log: { debug } })(bus);
+	DTLS._createServer.emit('secureConnection', SOCKET);
+	mqttsn.generate.mockReturnValueOnce(BUFFER);
+	bus.on.mock.calls[0][1]({});
+	expect(debug.mock.calls[0][0]).toEqual('Outgress packet: 040506');
+	expect(debug.mock.calls[0][1]).toMatchObject({
+		message_id: 'dbd3fac559fe42ad90d9dcb7d4a816b3',
+		clientKey: '::1_12345'
+	});
 });

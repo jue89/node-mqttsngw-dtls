@@ -6,8 +6,8 @@ module.exports = (opts) => (bus) => new Promise((resolve) => {
 	const srv = DTLS.createServer(opts);
 
 	// Debug log incoming handshakes
-	if (opts.log && opts.log.debug) {
-		srv.on('connection', (peer) => opts.log.debug(
+	if (opts.log && opts.log.info) {
+		srv.on('connection', (peer) => opts.log.info(
 			`Handshake started by [${peer.address}]:${peer.port}`,
 			{
 				message_id: 'c266859e94db40edbf126f74634dd5fc',
@@ -51,6 +51,12 @@ module.exports = (opts) => (bus) => new Promise((resolve) => {
 			try {
 				packet = mqttsn.generate(packet);
 				socket.send(packet);
+				if (opts.log && opts.log.debug) {
+					opts.log.debug(`Outgress packet: ${packet.toString('hex')}`, {
+						message_id: 'dbd3fac559fe42ad90d9dcb7d4a816b3',
+						clientKey: clientKey
+					});
+				}
 			} catch (err) {
 				if (opts.log && opts.log.error) {
 					opts.log.error(`Generator error: ${err.message}`, Object.assign({
@@ -66,12 +72,22 @@ module.exports = (opts) => (bus) => new Promise((resolve) => {
 		socket.on('close', () => bus.removeListener(outgressEvent, outgressHandler));
 
 		// Install logging handlers
-		if (opts.log && opts.log.debug) {
-			opts.log.debug(`Handshake successfully finished with [${peer.address}]:${peer.port}`, {
+		if (!opts.log) return;
+		if (opts.log.debug) {
+			socket.on('message', (message) => opts.log.debug(
+				`Ingress packet: ${message.toString('hex')}`,
+				{
+					message_id: 'fd5b9fe5a8d24877ba8a4f751c8b4f5f',
+					clientKey: clientKey
+				}
+			));
+		}
+		if (opts.log.info) {
+			opts.log.info(`Handshake successfully finished with [${peer.address}]:${peer.port}`, {
 				message_id: '1d223f68a881407d86b94babf40da157',
 				clientKey: clientKey
 			});
-			socket.on('close', () => opts.log.debug(
+			socket.on('close', () => opts.log.info(
 				`Connection to [${peer.address}]:${peer.port} closed`,
 				{
 					message_id: '0664446f18574088b369460de3aa197b',
@@ -79,7 +95,7 @@ module.exports = (opts) => (bus) => new Promise((resolve) => {
 				}
 			));
 		}
-		if (opts.log && opts.log.warn) {
+		if (opts.log.warn) {
 			parser.on('error', (err) => opts.log.warn(
 				`Parser error: ${err.message}`,
 				{
