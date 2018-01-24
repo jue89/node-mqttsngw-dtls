@@ -1,0 +1,43 @@
+{
+  "name": "mqttsngw-dtls",
+  "version": "0.0.0",
+  "description": "MQTT-SN Gateway: DTLS adapter for securing the sensor net",
+  "main": "index.js",
+  "scripts": {
+    "test": "happiness && jest",
+    "watch": "jest --watchAll"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jue89/node-mqttsngw-dtls.git"
+  },
+  "keywords": [
+    "mqttsn",
+    "dtls",
+    "sensornet"
+  ],
+  "author": "Jue <me@jue.yt>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jue89/node-mqttsngw-dtls/issues"
+  },
+  "homepage": "https://github.com/jue89/node-mqttsngw-dtls#readme",
+  "devDependencies": {
+    "happiness": "^10.0.2",
+    "jest": "^22.1.4"
+  },
+  "happiness": {
+    "globals": [
+      "jest",
+      "describe",
+      "test",
+      "expect",
+      "beforeEach"
+    ]
+  },
+  "jest": {
+    "automock": false,
+    "clearMocks": true
+  },
+  "dependencies": {}
+}
