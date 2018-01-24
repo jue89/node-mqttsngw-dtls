@@ -6,10 +6,16 @@ const mqttsn = require('mqttsn-packet');
 
 const dtls = require('../index.js');
 
+const bus = {
+	on: jest.fn(),
+	emit: jest.fn(() => true),
+	removeListener: jest.fn()
+};
+
 test('reject if creating DTLS socket failed', () => {
 	const ERR = new Error();
 	DTLS.createServer.mockImplementationOnce(() => { throw ERR; });
-	return dtls({})({})
+	return dtls({})(bus)
 		.then(() => Promise.reject(new Error('FAILED')))
 		.catch((e) => {
 			expect(e).toBe(ERR);
@@ -29,7 +35,7 @@ test('debug log incoming handshakes', () => {
 		port: 12345
 	};
 	const debug = jest.fn();
-	dtls({ log: { debug } })({});
+	dtls({ log: { debug } })(bus);
 	DTLS._createServer.emit('connection', PEER);
 	expect(debug.mock.calls[0][0]).toEqual('Handshake started by [::1]:12345');
 	expect(debug.mock.calls[0][1]).toMatchObject({
@@ -45,7 +51,7 @@ test('warn log errors caused by peers', () => {
 	};
 	const ERR = new Error('testErr');
 	const warn = jest.fn();
-	dtls({ log: { warn } })({});
+	dtls({ log: { warn } })(bus);
 	DTLS._createServer.emit('error', ERR, PEER);
 	expect(warn.mock.calls[0][0]).toEqual('Error caused by [::1]:12345: testErr');
 	expect(warn.mock.calls[0][1]).toMatchObject({
@@ -60,7 +66,7 @@ test('debug log established connections', () => {
 		port: 12345
 	});
 	const debug = jest.fn();
-	dtls({ log: { debug } })({});
+	dtls({ log: { debug } })(bus);
 	DTLS._createServer.emit('secureConnection', SOCKET);
 	expect(debug.mock.calls[0][0]).toEqual('Handshake successfully finished with [::1]:12345');
 	expect(debug.mock.calls[0][1]).toMatchObject({
@@ -75,7 +81,7 @@ test('debug log closed connections', () => {
 		port: 12345
 	});
 	const debug = jest.fn();
-	dtls({ log: { debug } })({});
+	dtls({ log: { debug } })(bus);
 	DTLS._createServer.emit('secureConnection', SOCKET);
 	SOCKET.emit('close');
 	expect(debug.mock.calls[1][0]).toEqual('Connection to [::1]:12345 closed');
@@ -91,7 +97,7 @@ test('parse incoming messages', () => {
 		address: '::1',
 		port: 12345
 	});
-	dtls({})({});
+	dtls({})(bus);
 	DTLS._createServer.emit('secureConnection', SOCKET);
 	SOCKET.emit('message', BUFFER);
 	expect(mqttsn._parser.parse.mock.calls[0][0]).toBe(BUFFER);
@@ -104,7 +110,7 @@ test('warn log parser errors', () => {
 		port: 12345
 	});
 	const warn = jest.fn();
-	dtls({ log: { warn } })({});
+	dtls({ log: { warn } })(bus);
 	DTLS._createServer.emit('secureConnection', SOCKET);
 	mqttsn._parser.emit('error', ERROR);
 	expect(warn.mock.calls[0][0]).toEqual('Parser error: testErr');
@@ -122,16 +128,15 @@ test('emit parsed packets to bus', () => {
 		address: '::1',
 		port: 12345
 	});
-	const emit = jest.fn(() => true);
-	dtls({})({ emit });
+	dtls({})(bus);
 	DTLS._createServer.emit('secureConnection', SOCKET);
 	mqttsn._parser.emit('packet', PACKET);
-	expect(emit.mock.calls[0][0]).toMatchObject([
+	expect(bus.emit.mock.calls[0][0]).toMatchObject([
 		'snUnicastIngress',
 		'::1_12345',
 		'testCmd'
 	]);
-	expect(emit.mock.calls[0][1]).toMatchObject(Object.assign({
+	expect(bus.emit.mock.calls[0][1]).toMatchObject(Object.assign({
 		clientKey: '::1_12345'
 	}, PACKET));
 });
@@ -145,8 +150,8 @@ test('error log if emitted bus events are not consumed', () => {
 		port: 12345
 	});
 	const error = jest.fn();
-	const emit = jest.fn(() => false);
-	dtls({ log: { error } })({ emit });
+	dtls({ log: { error } })(bus);
+	bus.emit.mockReturnValueOnce(false);
 	DTLS._createServer.emit('secureConnection', SOCKET);
 	mqttsn._parser.emit('packet', PACKET);
 	expect(error.mock.calls[0][0]).toEqual('Unconsumed MQTTSN packet');
@@ -155,4 +160,70 @@ test('error log if emitted bus events are not consumed', () => {
 		clientKey: '::1_12345',
 		cmd: 'testCmd'
 	});
+});
+
+test('listen for outgress packets on the bus', () => {
+	const SOCKET = DTLS._socket({
+		address: '::1',
+		port: 12345
+	});
+	dtls({})(bus);
+	DTLS._createServer.emit('secureConnection', SOCKET);
+	expect(bus.on.mock.calls[0][0]).toMatchObject([
+		'snUnicastOutgress',
+		'::1_12345',
+		'*'
+	]);
+});
+
+test('convert outgress packets to buffer and transmit them', () => {
+	const PACKET = {};
+	const BUFFER = {};
+	const SOCKET = DTLS._socket({
+		address: '::1',
+		port: 12345
+	});
+	dtls({})(bus);
+	DTLS._createServer.emit('secureConnection', SOCKET);
+	mqttsn.generate.mockReturnValueOnce(BUFFER);
+	bus.on.mock.calls[0][1](PACKET);
+	expect(mqttsn.generate.mock.calls[0][0]).toBe(PACKET);
+	expect(SOCKET.send.mock.calls[0][0]).toBe(BUFFER);
+});
+
+test('error log non-convertable outgress packets', () => {
+	const PACKET = {
+		test: 1234
+	};
+	const SOCKET = DTLS._socket({
+		address: '::1',
+		port: 12345
+	});
+	const error = jest.fn();
+	dtls({ log: { error } })(bus);
+	DTLS._createServer.emit('secureConnection', SOCKET);
+	mqttsn.generate.mockImplementationOnce(() => {
+		throw new Error('testErr');
+	});
+	bus.on.mock.calls[0][1](PACKET);
+	expect(error.mock.calls[0][0]).toEqual('Generator error: testErr');
+	expect(error.mock.calls[0][1]).toMatchObject(Object.assign({
+		message_id: 'c05700ab021d47ddbd3ab914e2eef334',
+		clientKey: '::1_12345'
+	}, PACKET));
+});
+
+test('remove listener for outgress packets on the bus on disconnect', () => {
+	const SOCKET = DTLS._socket({
+		address: '::1',
+		port: 12345
+	});
+	dtls({})(bus);
+	DTLS._createServer.emit('secureConnection', SOCKET);
+	SOCKET.emit('close');
+	expect(bus.removeListener.mock.calls[0][0]).toMatchObject([
+		'snUnicastOutgress',
+		'::1_12345',
+		'*'
+	]);
 });

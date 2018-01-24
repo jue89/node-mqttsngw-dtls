@@ -46,6 +46,25 @@ module.exports = (opts) => (bus) => new Promise((resolve) => {
 			}
 		});
 
+		// Listen for outgress packets on the bus
+		const outgressHandler = (packet) => {
+			try {
+				packet = mqttsn.generate(packet);
+				socket.send(packet);
+			} catch (err) {
+				if (opts.log && opts.log.error) {
+					opts.log.error(`Generator error: ${err.message}`, Object.assign({
+						message_id: 'c05700ab021d47ddbd3ab914e2eef334',
+						stack: err.stack,
+						clientKey: clientKey
+					}, packet));
+				}
+			}
+		};
+		const outgressEvent = ['snUnicastOutgress', clientKey, '*'];
+		bus.on(outgressEvent, outgressHandler);
+		socket.on('close', () => bus.removeListener(outgressEvent, outgressHandler));
+
 		// Install logging handlers
 		if (opts.log && opts.log.debug) {
 			opts.log.debug(`Handshake successfully finished with [${peer.address}]:${peer.port}`, {

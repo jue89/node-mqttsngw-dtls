@@ -7,4 +7,6 @@ const parser = () => {
 	return p;
 };
 
-module.exports = { parser };
+const generate = jest.fn(() => Buffer.alloc(0));
+
+module.exports = { parser, generate };

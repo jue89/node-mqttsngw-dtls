@@ -9,6 +9,7 @@ const createServer = jest.fn(() => {
 const _socket = (PEER) => {
 	const s = new EE();
 	s.address = () => PEER;
+	s.send = jest.fn();
 	return s;
 };
 
