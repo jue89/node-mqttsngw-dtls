@@ -39,5 +39,7 @@
     "automock": false,
     "clearMocks": true
   },
-  "dependencies": {}
+  "dependencies": {
+    "openssl-dtls": "^1.0.0"
+  }
 }
