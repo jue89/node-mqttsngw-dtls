@@ -30,6 +30,13 @@ test('call bind method on start call', () => {
 	expect(DTLS._createServer.bind.mock.calls[0][0]).toBe(bind);
 });
 
+test('call close method on stop call', (done) => {
+	const bind = {};
+	dtls({ bind })({})()().then(done);
+	expect(DTLS._createServer.close.mock.calls.length).toEqual(1);
+	DTLS._createServer.close.mock.calls[0][0]();
+});
+
 test('info log incoming handshakes', () => {
 	const PEER = {
 		address: '::1',

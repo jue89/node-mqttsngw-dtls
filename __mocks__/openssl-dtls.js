@@ -2,6 +2,7 @@ const EE = require('events');
 const createServer = jest.fn(() => {
 	const srv = new EE();
 	srv.bind = jest.fn();
+	srv.close = jest.fn();
 	module.exports._createServer = srv;
 	return srv;
 });

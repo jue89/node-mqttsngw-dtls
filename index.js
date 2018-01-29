@@ -112,9 +112,9 @@ module.exports = (opts) => (bus) => {
 	});
 
 	// Expose start and stop handler
-	const stop = () => {
-		// TODO
-	};
+	const stop = () => new Promise((resolve) => {
+		srv.close(resolve);
+	});
 	const start = () => {
 		srv.bind(opts.bind);
 		return stop;
