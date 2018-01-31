@@ -41,6 +41,7 @@
   },
   "dependencies": {
     "mqttsn-packet": "0.0.2",
-    "openssl-dtls": "^1.0.0"
+    "openssl-dtls": "^1.0.0",
+    "x509": "^0.3.3"
   }
 }

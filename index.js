@@ -1,4 +1,5 @@
 const DTLS = require('openssl-dtls');
+const x509 = require('x509');
 const mqttsn = require('mqttsn-packet');
 
 module.exports = (opts) => (bus) => {
@@ -32,10 +33,30 @@ module.exports = (opts) => (bus) => {
 		const peer = socket.address();
 		const clientKey = `${peer.address}_${peer.port}`;
 
+		// If a guard method has been defined also fetch cert info
+		const certInfo = (opts.guard)
+			? x509.parseCert(socket.getCertChain().toString())
+			: {};
+
 		// Parse incoming packets
 		const parser = mqttsn.parser();
 		socket.on('message', (msg) => parser.parse(msg));
 		parser.on('packet', (packet) => {
+			// Call guard if it has been defined
+			let ok = false;
+			try {
+				ok = opts.guard === undefined || opts.guard(peer, certInfo, packet);
+			} catch (e) {}
+			if (!ok) {
+				if (opts.log && opts.log.warn) {
+					opts.log.warn(`Packet rejected by guard`, Object.assign({
+						message_id: 'ac6bd64f22b1401da2e4f10dc8310e8e',
+						clientKey: clientKey
+					}, packet));
+				}
+				return;
+			}
+
 			packet.clientKey = clientKey;
 			const consumed = bus.emit(['snUnicastIngress', clientKey, packet.cmd], packet);
 			if (!consumed && opts.log && opts.log.error) {

@@ -7,8 +7,9 @@ const createServer = jest.fn(() => {
 	return srv;
 });
 
-const _socket = (PEER) => {
+const _socket = (PEER, CERT) => {
 	const s = new EE();
+	s.getCertChain = () => CERT;
 	s.address = () => PEER;
 	s.send = jest.fn();
 	return s;

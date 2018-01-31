@@ -1,3 +1,6 @@
+jest.mock('x509');
+const x509 = require('x509');
+
 jest.mock('openssl-dtls');
 const DTLS = require('openssl-dtls');
 
@@ -109,6 +112,36 @@ test('parse incoming messages', () => {
 	DTLS._createServer.emit('secureConnection', SOCKET);
 	SOCKET.emit('message', BUFFER);
 	expect(mqttsn._parser.parse.mock.calls[0][0]).toBe(BUFFER);
+});
+
+test('check incoming packets with guard function and block', () => {
+	const BUFFER = Buffer.alloc(0);
+	const ADDRESS = {
+		address: '::1',
+		port: 12345
+	};
+	const CERT = Buffer.from('test');
+	const SOCKET = DTLS._socket(ADDRESS, CERT);
+	const guard = jest.fn(() => false);
+	const warn = jest.fn();
+	dtls({ guard, log: { warn } })(bus);
+	const CERTINFO = {};
+	x509.parseCert.mockReturnValueOnce(CERTINFO);
+	DTLS._createServer.emit('secureConnection', SOCKET);
+	SOCKET.emit('message', BUFFER);
+	expect(mqttsn._parser.parse.mock.calls[0][0]).toBe(BUFFER);
+	const PACKET = { cmd: 'test' };
+	mqttsn._parser.emit('packet', PACKET);
+	expect(x509.parseCert.mock.calls[0][0]).toEqual(CERT.toString());
+	expect(guard.mock.calls[0][0]).toMatchObject(ADDRESS);
+	expect(guard.mock.calls[0][1]).toBe(CERTINFO);
+	expect(guard.mock.calls[0][2]).toBe(PACKET);
+	expect(bus.emit.mock.calls.length).toEqual(0);
+	expect(warn.mock.calls[0][0]).toEqual('Packet rejected by guard');
+	expect(warn.mock.calls[0][1]).toMatchObject(Object.assign({
+		message_id: 'ac6bd64f22b1401da2e4f10dc8310e8e',
+		clientKey: '::1_12345'
+	}, PACKET));
 });
 
 test('warn log parser errors', () => {
