@@ -1,6 +1,6 @@
 {
   "name": "mqttsngw-dtls",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "MQTT-SN Gateway: DTLS adapter for securing the sensor net",
   "main": "index.js",
   "scripts": {
