@@ -1,5 +1,5 @@
-jest.mock('x509');
-const x509 = require('x509');
+jest.mock('x509.js');
+const x509 = require('x509.js');
 
 jest.mock('openssl-dtls');
 const DTLS = require('openssl-dtls');
@@ -132,7 +132,7 @@ test('check incoming packets with guard function and block', () => {
 	expect(mqttsn._parser.parse.mock.calls[0][0]).toBe(BUFFER);
 	const PACKET = { cmd: 'test' };
 	mqttsn._parser.emit('packet', PACKET);
-	expect(x509.parseCert.mock.calls[0][0]).toEqual(CERT.toString());
+	expect(x509.parseCert.mock.calls[0][0]).toEqual(CERT);
 	expect(guard.mock.calls[0][0]).toMatchObject(ADDRESS);
 	expect(guard.mock.calls[0][1]).toBe(CERTINFO);
 	expect(guard.mock.calls[0][2]).toBe(PACKET);
