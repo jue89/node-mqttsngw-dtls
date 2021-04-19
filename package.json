@@ -37,11 +37,12 @@
   },
   "jest": {
     "automock": false,
-    "clearMocks": true
+    "clearMocks": true,
+    "testEnvironment": "node"
   },
   "dependencies": {
     "mqttsn-packet": "0.0.2",
     "openssl-dtls": "^1.0.0",
-    "x509": "^0.3.3"
+    "x509.js": "^1.0.0"
   }
 }

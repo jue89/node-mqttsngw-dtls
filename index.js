@@ -1,5 +1,5 @@
 const DTLS = require('openssl-dtls');
-const x509 = require('x509');
+const x509 = require('x509.js');
 const mqttsn = require('mqttsn-packet');
 
 module.exports = (opts) => (bus) => {
@@ -35,7 +35,7 @@ module.exports = (opts) => (bus) => {
 
 		// If a guard method has been defined also fetch cert info
 		const certInfo = (opts.guard)
-			? x509.parseCert(socket.getCertChain().toString())
+			? x509.parseCert(socket.getCertChain())
 			: {};
 
 		// Parse incoming packets
