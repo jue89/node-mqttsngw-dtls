@@ -24,7 +24,7 @@
   "homepage": "https://github.com/jue89/node-mqttsngw-dtls#readme",
   "devDependencies": {
     "happiness": "^10.0.2",
-    "jest": "^22.1.4"
+    "jest": "^29.3.1"
   },
   "happiness": {
     "globals": [
